@@ -45,6 +45,9 @@ class OhaCore {
     /** @return void */
     public function run() {
         $argv = Util::getCommandArgs();
+        if ( !isset($argv[1]) ) {
+            $argv[1] = 'help';
+        }
         $action = $argv[1];
         
         array_shift($argv);

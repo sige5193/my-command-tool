@@ -2,13 +2,78 @@
 namespace Action;
 use Core\CommandActionAbstract;
 use Core\Util as CoreUtil;
+use Core\OhaCore;
 class Help extends CommandActionAbstract {
     /**
+     * 显示帮助信息
      * @param string $name 命令名称
      * @return void
      */
     public function run ( $name=null ) {
-        $this->showDetail($name);
+        (null===$name) ? $this->showAll() : $this->showDetail($name);
+    }
+    
+    /** @return void */
+    private function showAll() {
+        $basePath = OhaCore::system()->getPath('Action');
+        $files = $this->fetchDir($basePath);
+        CoreUtil::printf("Commands : \n");
+        $commands = array();
+        $maxCommandLength = 0;
+        foreach ( $files as $file ) {
+            $action = str_replace(array($basePath,'.php'), '', $file);
+            $action = '\\Action'.str_replace(DIRECTORY_SEPARATOR, '\\', $action);
+            if ( !class_exists($action) ) {
+                continue;
+            }
+            
+            $actionInfo = new \ReflectionClass($action);
+            $handler = $actionInfo->getMethod('run');
+            $docComment = $handler->getDocComment();
+            $description = $this->getActionNameFromDocComment($docComment);
+            $command = $this->getActionCommandByClassName($action);
+            $commands[] = array('name'=>$command, 'description'=>$description);
+            
+            if ( strlen($command) > $maxCommandLength ) {
+                $maxCommandLength = strlen($command);
+            }
+        }
+        
+        foreach ( $commands as $command ) {
+            CoreUtil::printf("    %-{$maxCommandLength}s    %s\n", $command['name'], $command['description']);
+        }
+    }
+    
+    /** @return string */
+    private function getActionCommandByClassName($action) {
+        $action = str_replace('\\Action\\', '', $action);
+        $action = implode('/', array_map('lcfirst', explode('\\', $action)));
+        $action = preg_replace('#([A-Z])#', '-${1}', $action);
+        $action = implode('-', array_map('lcfirst', explode('-', $action)));
+        return $action;
+    }
+    
+    /** @return array */
+    private function fetchDir( $path ) {
+        if ( is_file($path) ) {
+            return array($path);
+        }
+        
+        $path = trim($path, DIRECTORY_SEPARATOR);
+        $files = array();
+        $subFiles = scandir($path);
+        foreach ( $subFiles as $subFile ) {
+            if ( '.' === $subFile[0] ) {
+                continue;
+            }
+            $subPath = $path.DIRECTORY_SEPARATOR.$subFile;
+            if ( is_dir($subPath) ) {
+                $files = array_merge($files, $this->fetchDir($subPath));
+            } else {
+                $files[] = $subPath;
+            }
+        }
+        return $files;
     }
     
     /**
