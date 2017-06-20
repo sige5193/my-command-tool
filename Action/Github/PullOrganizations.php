@@ -52,8 +52,14 @@ class PullOrganizations extends CommandActionAbstract {
                     continue;
                 }
                 
-                $detailResponse = $client->request('GET', "orgs/{$item['login']}", ['verify'=>false]);
-                if ( $this->checkRateRemainsAndBreakLimit($detailResponse) ) {
+                $detailResponse = $client->request('GET', "orgs/{$item['login']}", [
+                    'query' => [
+                        'client_id'=>$mainConfig['Github']['ClientID'],
+                        'client_secret'=>$mainConfig['Github']['ClientSecret']],
+                    'verify'=>false
+                ]);
+                $rateMessage = '';
+                if ( $this->checkRateRemainsAndBreakLimit($detailResponse, $rateMessage) ) {
                     $index --;
                     # 如果到了限制并且已经突破，则需要重新请求。
                     continue;
@@ -61,7 +67,7 @@ class PullOrganizations extends CommandActionAbstract {
                 
                 $orgDetail = json_decode($detailResponse->getBody(), true);
                 $name = isset($orgDetail['name']) ? $orgDetail['name'] : 'No-Name';
-                $this->info('%s %s %s', $orgDetail['id'], $orgDetail['login'], $name);
+                $this->info('%s %s %s %s', $rateMessage, $orgDetail['id'], $orgDetail['login'], $name);
                 
                 $org = new Organization();
                 $org->set_attributes($orgDetail);
@@ -77,10 +83,14 @@ class PullOrganizations extends CommandActionAbstract {
      * @param unknown $response
      * @return boolean
      */
-    private function checkRateRemainsAndBreakLimit( $response ) {
+    private function checkRateRemainsAndBreakLimit( $response, &$message=null ) {
         $rateLimit = $response->getHeader('X-RateLimit-Limit');
         $rateRemain = $response->getHeader('X-RateLimit-Remaining');
         $rateResetTime = $response->getHeader('X-RateLimit-Reset');
+        if ( null !== $message ) {
+            $message = "[L:{$rateLimit[0]} R:{$rateRemain[0]}]";
+        }
+        
         if ( 10 < $rateRemain[0] ) {
             return false;
         }
