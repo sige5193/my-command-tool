@@ -2,3 +2,6 @@
 .settings/
 .buildpath
 .project
+
+# real data files
+Data/Github/data.db

@@ -68,8 +68,8 @@ class OhaCore {
     }
     
     /** @return string */
-    public function getPath( $path ) {
-        $basepath = dirname(dirname(__FILE__));
-        return $basepath.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path);
+    public function getPath( $path, $separator=DIRECTORY_SEPARATOR ) {
+        $basepath = str_replace(DIRECTORY_SEPARATOR, $separator, dirname(dirname(__FILE__)));
+        return $basepath.$separator.str_replace('/', $separator, $path);
     }
 }
