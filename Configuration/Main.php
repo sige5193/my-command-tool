@@ -1,5 +1,9 @@
 <?php
 return array(
+'CharSet' => array(
+    'Input' => 'GB2312',
+    'Output' => 'GB2312//IGNORE',
+),
 'ShgtSiteAdmin' => array(
     'MenuItem' => json_decode(file_get_contents(__DIR__.'/shgt-site-admin-menu-item.json'), true),
     'DataBaseTableInfo' => array(

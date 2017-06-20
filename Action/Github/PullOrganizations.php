@@ -47,6 +47,7 @@ class PullOrganizations extends CommandActionAbstract {
                 $org = new Organization();
                 $org->set_attributes($orgDetail);
                 $org->save();
+                $position = $item['id'];
             }
         } while ( true );
         

@@ -27,9 +27,10 @@ class Util {
     public static function getCommandArgs() {
         global $argv;
         
+        $config = OhaCore::system()->getConfig();
         $params = array();
         foreach ( $argv as $arg ) {
-            $params[] = iconv("GB2312", "UTF-8", $arg);
+            $params[] = iconv($config['CharSet']['Input'], "UTF-8", $arg);
         }
         return $params;
     }
@@ -37,7 +38,8 @@ class Util {
     /** @param string $content */
     public static function printf( $content ) {
         $message = call_user_func_array('sprintf', func_get_args());
-        $message = iconv("UTF-8", "GB2312//IGNORE", $message);
+        $config = OhaCore::system()->getConfig();
+        $message = iconv("UTF-8", $config['CharSet']['Output'], $message);
         echo $message;
     }
 }
