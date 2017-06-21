@@ -24,6 +24,7 @@ class OhaCore {
     private function __construct() {
         spl_autoload_register(array($this, '_autoloader'));
         $this->config = require $this->getPath('Configuration/Main.php');
+        date_default_timezone_set($this->config['Core']['TimeZone']);
         $this->registerLibraryAutoloader();
     }
     

@@ -1,5 +1,8 @@
 <?php
 return array(
+'Core' => array(
+    'TimeZone' => 'Asia/Shanghai',
+),
 'CharSet' => array(
     'Input' => 'GB2312',
     'Output' => 'GB2312//IGNORE',

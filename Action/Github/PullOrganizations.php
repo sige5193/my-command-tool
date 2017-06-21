@@ -10,8 +10,6 @@ class PullOrganizations extends CommandActionAbstract {
      * @return void
      */
     protected function run( ) {
-        date_default_timezone_set('Asia/Shanghai');
-        
         $dbTmplPath = OhaCore::system()->getPath('Data/Github/data.tmpl.db');
         $dbPath = OhaCore::system()->getPath('Data/Github/data.db', '/');
         if ( !file_exists($dbPath) ) {

@@ -9,8 +9,6 @@ class Hunt extends CommandActionAbstract {
      * @return void
      */
     protected function run( ) {
-        date_default_timezone_set('Asia/Shanghai');
-        
         $dbTmplPath = OhaCore::system()->getPath('Data/IpPool/pool.tmpl.db');
         $dbPath = OhaCore::system()->getPath('Data/IpPool/pool.db', '/');
         if ( !file_exists($dbPath) ) {
