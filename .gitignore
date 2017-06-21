@@ -3,5 +3,6 @@
 .buildpath
 .project
 
-# real data files
+# runtime data files
 Data/Github/data.db
+Data/IpPool/pool.db

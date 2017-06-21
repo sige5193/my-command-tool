@@ -55,7 +55,7 @@ class CommandActionAbstract {
         try {
             call_user_func_array(array($this, 'run'), $methodParams);
         } catch ( \Exception $e ) {
-            $this->error($e->getMessage());
+            $this->error("[".get_class($e)."]". $e->getMessage());
         }
     }
     

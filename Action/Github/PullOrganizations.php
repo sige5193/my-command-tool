@@ -26,6 +26,10 @@ class PullOrganizations extends CommandActionAbstract {
         
         $mainConfig = OhaCore::system()->getConfig();
         $position = 0;
+        $lastOrg = Organization::find('first', array('order'=>'id DESC','limit'=>1));
+        if ( null !== $lastOrg ) {
+            $position = $lastOrg->id;
+        }
         do {
             $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
             $response = $client->request('GET', '/organizations', [
