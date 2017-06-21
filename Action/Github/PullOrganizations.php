@@ -83,13 +83,15 @@ class PullOrganizations extends CommandActionAbstract {
         
         $orgDetail = json_decode($response->getBody(), true);
         $name = isset($orgDetail['name']) ? $orgDetail['name'] : 'No-Name';
-        $this->info('%s %s %s %s', $rateMessage, $orgDetail['id'], $orgDetail['login'], $name);
+        $this->info('|%d| %s %s %s %s', $this->orgCounter, $rateMessage, $orgDetail['id'], $orgDetail['login'], $name);
         
         $org = new Organization();
         $org->set_attributes($orgDetail);
         $org->save();
         
-        $this->position = $orgDetail['id'];
+        if ( $orgDetail['id'] > $this->position ) {
+            $this->position = $orgDetail['id'];
+        }
         $this->orgCounter ++;
     }
     
