@@ -1,6 +1,8 @@
 <?php
 namespace Util\Model;
 use ActiveRecord\Model;
+use Core\OhaCore;
+use Core\Util;
 class ModelAbstract extends Model {
     /**
      * @param array $data
@@ -43,6 +45,12 @@ class ModelAbstract extends Model {
         
         $tableName = self::table()->get_fully_qualified_table_name();
         $query = "INSERT INTO {$tableName} VALUES {$values}";
-        $connection->query($query);
+        
+        try {
+            $connection->query($query);
+        } catch ( \ActiveRecord\DatabaseException $e ) {
+            echo Util::printf("Error Query : ".$query);
+            exit();
+        }
     }
 }
