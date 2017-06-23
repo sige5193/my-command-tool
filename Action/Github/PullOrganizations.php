@@ -113,7 +113,11 @@ class PullOrganizations extends CommandActionAbstract {
     
     /** 获取显示信息前缀*/
     private function getDisplayPrefix() {
-        $speed = sprintf('%.2forg/s', $this->currentTaskOrgCounter / (time()-$this->taskStartTime));
+        $speed = sprintf('%.2f', $this->currentTaskOrgCounter / (time()-$this->taskStartTime));
+        if ( 4 >= strlen($speed) ) {
+            $speed = "0{$speed}";
+        }
+        $speed = sprintf('%sorg/s', $speed);
         $printPrefix = sprintf("@%s |C:%s P:%d| %s", $speed, $this->orgCounter, $this->position, $this->requestRateLimitMessage);
         return $printPrefix;
     }
