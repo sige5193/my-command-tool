@@ -1,7 +1,6 @@
 <?php
 namespace Util\Model;
 use ActiveRecord\Model;
-use Core\OhaCore;
 use Core\Util;
 class ModelAbstract extends Model {
     /**
@@ -22,6 +21,10 @@ class ModelAbstract extends Model {
             if ( isset($data[$existsItem->id]) ) {
                 unset($data[$existsItem->id]);
             }
+        }
+        
+        if ( empty($data) ) {
+            return ;
         }
         
         $connection = self::connection();

@@ -235,14 +235,7 @@ class PullOrganizations extends CommandActionAbstract {
                 sleep(1);
             }
             
-            $this->currentRequester = array(
-                'index' => $minWaitTimeIndex,
-                'Name' => $githubApps[$minWaitTimeIndex]['Name'],
-                'ClientID' => $githubApps[$minWaitTimeIndex]['ClientID'],
-                'ClientSecret' => $githubApps[$minWaitTimeIndex]['ClientSecret'],
-                'Proxy' => $githubApps[$minWaitTimeIndex]['Proxy'],
-                'Concurrency' => $githubApps[$minWaitTimeIndex]['Concurrency'],
-            );
+            $this->switchRequester();
         }
     }
     
