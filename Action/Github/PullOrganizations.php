@@ -35,9 +35,10 @@ class PullOrganizations extends CommandActionAbstract {
     
     /**
      * 拉取Github的组织信息并且存储到本地数据库中。
+     * @param int $position 拉取起始偏移量
      * @return void
      */
-    protected function run( ) {
+    protected function run( $position=null ) {
         $this->taskStartTime = time();
         
         $dbTmplPath = OhaCore::system()->getPath('Data/Github/data.tmpl.db');
@@ -56,6 +57,9 @@ class PullOrganizations extends CommandActionAbstract {
         $lastOrg = Organization::find('first', array('order'=>'id DESC','limit'=>1));
         if ( null !== $lastOrg ) {
             $this->position = $lastOrg->id;
+        }
+        if ( null !== $position ) {
+            $this->position = $position;
         }
         
         $this->switchRequester();
