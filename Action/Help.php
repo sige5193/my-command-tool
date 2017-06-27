@@ -59,7 +59,7 @@ class Help extends CommandActionAbstract {
             return array($path);
         }
         
-        $path = trim($path, DIRECTORY_SEPARATOR);
+        $path = rtrim($path, DIRECTORY_SEPARATOR);
         $files = array();
         $subFiles = scandir($path);
         foreach ( $subFiles as $subFile ) {
