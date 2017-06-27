@@ -117,6 +117,10 @@ class PullOrganizations extends CommandActionAbstract {
     
     /** 获取显示信息前缀*/
     private function getDisplayPrefix() {
+        $timeSpend = time()-$this->taskStartTime;
+        if ( 0 === $timeSpend ) {
+            $timeSpend = 1;
+        }
         $speed = sprintf('%.2f', $this->currentTaskOrgCounter / (time()-$this->taskStartTime));
         if ( 4 >= strlen($speed) ) {
             $speed = "0{$speed}";
