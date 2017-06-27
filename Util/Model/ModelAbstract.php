@@ -52,7 +52,7 @@ class ModelAbstract extends Model {
         try {
             $connection->query($query);
         } catch ( \ActiveRecord\DatabaseException $e ) {
-            echo Util::printf("Error Query : ".$query);
+            echo Util::printf("Error Query (".$e->getMessage()."): ".$query);
             exit();
         }
     }
