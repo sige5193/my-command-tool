@@ -35,7 +35,7 @@ class ModelAbstract extends Model {
             foreach ( $attributes as $name ) {
                 if ( !isset($item[$name]) ) {
                     $value[$name] = 'null';
-                } else if ( is_numeric($item[$name]) && false===strpos($item[$name], 'e')) {
+                } else if ( is_numeric($item[$name]) && false===strpos(strtolower($item[$name]), 'e')) {
                     $value[$name] = $item[$name]*1;
                 } else {
                     $value[$name] = $connection->escape($item[$name]);
