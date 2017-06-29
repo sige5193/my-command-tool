@@ -62,6 +62,7 @@ class PullOrganizations extends CommandActionAbstract {
             $this->position = $position;
         }
         
+        $this->isSwitchRequesterRequired = true;
         $this->switchRequester();
         $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
         $response = $client->request('GET', '/organizations', $this->getRequestOption(array('since'=>$this->position)));
@@ -245,6 +246,9 @@ class PullOrganizations extends CommandActionAbstract {
             
             $this->switchRequester();
         }
+        
+        $this->taskStartTime = time() - 1;
+        $this->currentTaskOrgCounter = 0;
     }
     
     /**
