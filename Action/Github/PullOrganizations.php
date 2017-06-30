@@ -171,6 +171,7 @@ class PullOrganizations extends CommandActionAbstract {
     /** 获取请求配置信息 */
     private function getRequestOption($query=array()) {
         $option = array();
+        $option['connect_timeout'] = 3;
         $option['verify'] = false;
         $option['query'] = $query;
         $option['query']['client_id'] = $this->currentRequester['ClientID'];
