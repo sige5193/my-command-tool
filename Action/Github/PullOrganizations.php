@@ -95,7 +95,7 @@ class PullOrganizations extends CommandActionAbstract {
             $poolOption = array();
             $poolOption['fulfilled'] = array($this,'onAPICallSuccessed');
             $poolOption['rejected'] = array($this,'onAPICallFailed');
-            $poolOption['concurrency'] = (null===$this->currentRequester['Proxy']) ? count($requestJobs) : 3;
+            $poolOption['concurrency'] = (null===$this->currentRequester['Proxy']) ? count($requestJobs) : 10;
             $poolOption['options'] = $this->getRequestOption(array('since'=>$this->position));
             $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
             $pool = new Pool($client, $requestJobs,$poolOption);
