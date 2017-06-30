@@ -67,6 +67,9 @@ class PullOrganizations extends CommandActionAbstract {
         $this->isSwitchRequesterRequired = true;
         $this->switchRequester();
         do {
+            if ( null != $limit && $this->position > $limit ) {
+                break;
+            }
             if ( false === $this->taskList ) {
                 $this->info("No task any more.");
                 break;
@@ -110,10 +113,6 @@ class PullOrganizations extends CommandActionAbstract {
             if ( $this->isSwitchRequesterRequired ) {
                 $this->position = $responseJson[0]['id'];
                 $this->switchRequester();
-            }
-            
-            if ( null != $limit && $this->position > $limit ) {
-                break;
             }
         } while ( true );
         
