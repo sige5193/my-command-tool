@@ -39,7 +39,7 @@ class PullOrganizations extends CommandActionAbstract {
      * @param int $position 拉取起始偏移量
      * @return void
      */
-    protected function run( $position=null ) {
+    protected function run( $position=null, $limit=null ) {
         $this->proxyManager = new ProxyWebSiteWwwSslProxiesOrg();
         $this->taskStartTime = time();
         
@@ -110,6 +110,10 @@ class PullOrganizations extends CommandActionAbstract {
             if ( $this->isSwitchRequesterRequired ) {
                 $this->position = $responseJson[0]['id'];
                 $this->switchRequester();
+            }
+            
+            if ( null != $limit && $this->position > $limit ) {
+                break;
             }
         } while ( true );
         
