@@ -6,6 +6,7 @@ use Model\Github\Organization;
 use function GuzzleHttp\json_decode;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Pool;
+use Component\ProxyWebSiteWwwSslProxiesOrg;
 class PullOrganizations extends CommandActionAbstract {
     /** 拉取信息时的偏移值 */
     private $position = 0;
@@ -19,12 +20,10 @@ class PullOrganizations extends CommandActionAbstract {
     private $isSwitchRequesterRequired = false;
     /** 当前请求者信息 */
     private $currentRequester = array(
-        'index' => null,
         'Name' => null,
         'ClientID' => null,
         'ClientSecret' => null,
         'Proxy' => null,
-        'Concurrency' => null,
     );
     /** 待批量插入的组织数据 */
     private $batchOrgs = array();
@@ -32,6 +31,8 @@ class PullOrganizations extends CommandActionAbstract {
     private $requestRateLimitMessage = null;
     /** 任务列表,false=全部任务结束，true=正在获取中, array=获取完成 */
     private $taskList = null;
+    /** @var ProxyWebSiteWwwSslProxiesOrg */
+    private $proxyManager = null;
     
     /**
      * 拉取Github的组织信息并且存储到本地数据库中。
@@ -39,6 +40,7 @@ class PullOrganizations extends CommandActionAbstract {
      * @return void
      */
     protected function run( $position=null ) {
+        $this->proxyManager = new ProxyWebSiteWwwSslProxiesOrg();
         $this->taskStartTime = time();
         
         $dbTmplPath = OhaCore::system()->getPath('Data/Github/data.tmpl.db');
@@ -64,19 +66,20 @@ class PullOrganizations extends CommandActionAbstract {
         
         $this->isSwitchRequesterRequired = true;
         $this->switchRequester();
-        $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-        $response = $client->request('GET', '/organizations', $this->getRequestOption(array('since'=>$this->position)));
-        $this->onAPICallSuccessed($response, 0);
-        echo "\n";
         do {
             if ( false === $this->taskList ) {
                 $this->info("No task any more.");
                 break;
             }
             if ( null === $this->taskList ) {
-                $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-                $response = $client->request('GET', '/organizations', $this->getRequestOption(array('since'=>$this->position)));
-                $this->onAPICallSuccessed($response, 0);
+                do {
+                    $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
+                    try {
+                        $response = $client->request('GET', '/organizations', $this->getRequestOption(array('since'=>$this->position)));
+                    } catch ( \Exception $e ) { }
+                    $this->onAPICallSuccessed($response, 0);
+                    break;
+                } while( true );
                 continue;
             }
             
@@ -92,10 +95,7 @@ class PullOrganizations extends CommandActionAbstract {
             $poolOption = array();
             $poolOption['fulfilled'] = array($this,'onAPICallSuccessed');
             $poolOption['rejected'] = array($this,'onAPICallFailed');
-            $poolOption['concurrency'] = count($requestJobs);
-            if ( null !== $this->currentRequester['Concurrency'] ) {
-                $poolOption['concurrency'] = $this->currentRequester['Concurrency'];
-            }
+            $poolOption['concurrency'] = (null===$this->currentRequester['Proxy']) ? count($requestJobs) : 3;
             $poolOption['options'] = $this->getRequestOption(array('since'=>$this->position));
             $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
             $pool = new Pool($client, $requestJobs,$poolOption);
@@ -160,18 +160,8 @@ class PullOrganizations extends CommandActionAbstract {
      * @param \GuzzleHttp\Exception\RequestException $reason
      * */
     public function onAPICallFailed($reason, $index) {
-        $mark = '.';
-        if ( 0 === $index ) {
-            $mark = '*';
-            $this->taskList = null;
-        }
-        
-        switch ( $reason->getCode() ) {
-        case 504 : echo "[{$mark}:504]"; break;
-        default  : 
-            $this->info($reason->getMessage()); 
-            break;
-        }
+        echo "X";
+        $this->isSwitchRequesterRequired = true;
     }
     
     /** 获取请求配置信息 */
@@ -193,60 +183,30 @@ class PullOrganizations extends CommandActionAbstract {
         $mainConfig = OhaCore::system()->getConfig();
         $githubApps = $mainConfig['Github']['AppInfos'];
         
-        $activeIndex = $this->currentRequester['index'];
-        if ( null === $activeIndex ) {
-            $activeIndex = 0;
-        } else if ( $activeIndex+1 >= count($githubApps) ) {
-            $activeIndex = 0;
-        } else {
-            $activeIndex ++;
-        }
-        
-        $minWaitTime = null;
-        $minWaitTimeIndex = null;
-        for ( ; $activeIndex<count($githubApps); $activeIndex++ ) {
-            $this->currentRequester = array(
-                'index' => $activeIndex,
-                'Name' => $githubApps[$activeIndex]['Name'],
-                'ClientID' => $githubApps[$activeIndex]['ClientID'],
-                'ClientSecret' => $githubApps[$activeIndex]['ClientSecret'],
-                'Proxy' => $githubApps[$activeIndex]['Proxy'],
-                'Concurrency' => $githubApps[$activeIndex]['Concurrency'],
-            );
+        while ( $this->isSwitchRequesterRequired ) {
+            foreach ( $githubApps as $githubApp ) {
+                $this->currentRequester = array(
+                    'Name' => $githubApp['Name'],
+                    'ClientID' => $githubApp['ClientID'],
+                    'ClientSecret' => $githubApp['ClientSecret'],
+                    'Proxy' => $this->proxyManager->getAnAvailableProxyString(),
+                );
             
-            try {
-                $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-                $response = $client->request('GET', 'orgs/github', $this->getRequestOption());
-            } catch ( \GuzzleHttp\Exception\ClientException $e ) {
-                $this->info("Switch requester : %s blocked.", $githubApps[$activeIndex]['Name']);
-                continue;
-            }
-
-            $waitTime = 0;
-            if ( $this->checkLimitRateRemains($response, $waitTime) ) {
-                $this->info("Switch requester : %s available.", $githubApps[$activeIndex]['Name']);
-                $this->isSwitchRequesterRequired = false;
-                break;
-            }
+                try {
+                    $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
+                    $response = $client->request('GET', 'orgs/github', $this->getRequestOption());
+                } catch ( \Exception $e ) {
+                    continue;
+                }
             
-            $this->info("Switch requester : %s remains %d secs.", $githubApps[$activeIndex]['Name'], $waitTime);
-            if ( null===$minWaitTime || $waitTime<$minWaitTime ){
-                $minWaitTime = $waitTime;
-                $minWaitTimeIndex = $activeIndex;
+                $waitTime = 0;
+                if ( $this->checkLimitRateRemains($response, $waitTime) ) {
+                    $this->info("Switch requester : %s available.", $githubApp['Name']);
+                    $this->isSwitchRequesterRequired = false;
+                    break;
+                }
             }
         }
-        
-        if ( $this->isSwitchRequesterRequired ) {
-            $minWaitTime += 5;
-            while ( $minWaitTime > 0 ) {
-                $this->info("You need to wait for {$minWaitTime} secs to back to top limit.");
-                $minWaitTime --;
-                sleep(1);
-            }
-            
-            $this->switchRequester();
-        }
-        
         $this->taskStartTime = time() - 1;
         $this->currentTaskOrgCounter = 0;
     }
@@ -260,7 +220,7 @@ class PullOrganizations extends CommandActionAbstract {
         $rateRemain = $response->getHeader('X-RateLimit-Remaining');
         $rateResetTime = $response->getHeader('X-RateLimit-Reset');
         
-        $this->requestRateLimitMessage = "[U:{$this->currentRequester['Name']} L:{$rateLimit[0]} R:{$rateRemain[0]}]";
+        $this->requestRateLimitMessage = "[U:{$this->currentRequester['Name']} P:{$this->currentRequester['Proxy']} L:{$rateLimit[0]} R:{$rateRemain[0]}]";
         $waitSeconds = $rateResetTime[0] - time();
         if ( null !== $rateResetSeconds ) {
             $rateResetSeconds = $waitSeconds;
