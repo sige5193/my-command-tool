@@ -79,7 +79,9 @@ class PullOrganizations extends CommandActionAbstract {
                     $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
                     try {
                         $response = $client->request('GET', '/organizations', $this->getRequestOption(array('since'=>$this->position)));
-                    } catch ( \Exception $e ) { }
+                    } catch ( \Exception $e ) { 
+                        continue;
+                    }
                     $this->onAPICallSuccessed($response, 0);
                     break;
                 } while( true );
