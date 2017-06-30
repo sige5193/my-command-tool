@@ -18,6 +18,7 @@ class ProxyWebSiteWwwSslProxiesOrg {
             $this->pullProxyList();
         }
         
+        Util::printf("Proxy Count : %d\n", count($this->proxies));
         $proxyString = null;
         foreach ( $this->proxies as $index => $item ) {
             unset($this->proxies[$index]);

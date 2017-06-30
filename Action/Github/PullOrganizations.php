@@ -183,15 +183,16 @@ class PullOrganizations extends CommandActionAbstract {
         $mainConfig = OhaCore::system()->getConfig();
         $githubApps = $mainConfig['Github']['AppInfos'];
         
+        $isNoPorxyTried = false;
         while ( $this->isSwitchRequesterRequired ) {
             foreach ( $githubApps as $githubApp ) {
                 $this->currentRequester = array(
                     'Name' => $githubApp['Name'],
                     'ClientID' => $githubApp['ClientID'],
                     'ClientSecret' => $githubApp['ClientSecret'],
-                    'Proxy' => $this->proxyManager->getAnAvailableProxyString(),
+                    'Proxy' => $isNoPorxyTried ? $this->proxyManager->getAnAvailableProxyString() : null,
                 );
-            
+                
                 try {
                     $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
                     $response = $client->request('GET', 'orgs/github', $this->getRequestOption());
@@ -205,6 +206,7 @@ class PullOrganizations extends CommandActionAbstract {
                     $this->isSwitchRequesterRequired = false;
                     break;
                 }
+                $isNoPorxyTried = true;
             }
         }
         $this->taskStartTime = time() - 1;
