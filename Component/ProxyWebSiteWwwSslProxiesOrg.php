@@ -14,7 +14,7 @@ class ProxyWebSiteWwwSslProxiesOrg {
      * @return string
      */
     public function getAnAvailableProxyString() {
-        if ( empty($this->proxies) ) {
+        if ( 50 > count($this->proxies) ) {
             $this->pullProxyList();
         }
         
@@ -55,6 +55,7 @@ class ProxyWebSiteWwwSslProxiesOrg {
             'cookies' => true,
         ]);
         
+        $this->proxies = array();
         $response = $client->request('GET', "/", ['verify'=>false]);
         $htmlPage = str_get_html($response->getBody());
         
