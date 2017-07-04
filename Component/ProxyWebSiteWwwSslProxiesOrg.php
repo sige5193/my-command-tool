@@ -14,7 +14,7 @@ class ProxyWebSiteWwwSslProxiesOrg {
      * @return string
      */
     public function getAnAvailableProxyString() {
-        if ( 50 > count($this->proxies) ) {
+        if ( 80 > count($this->proxies) ) {
             $this->pullProxyList();
         }
         
