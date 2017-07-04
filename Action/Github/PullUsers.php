@@ -204,7 +204,7 @@ class PullUsers extends CommandActionAbstract {
             }
         }
         $this->taskStartTime = time() - 1;
-        $this->currentTaskOrgCounter = 0;
+        $this->currentTaskUserCounter = 0;
     }
     
     /** 获取请求配置信息 */
