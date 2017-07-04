@@ -13,13 +13,13 @@ class ModelAbstract extends Model {
         $ids = array();
         foreach ( $data as $index => $item ) {
             $ids[] = $item['id'];
-            $data[$item['id']] = $item;
+            $data["item-".$item['id']] = $item;
             unset($data[$index]);
         }
         $exists = self::find('all', array('id'=>$ids));
         foreach ( $exists as $existsItem ) {
-            if ( isset($data[$existsItem->id]) ) {
-                unset($data[$existsItem->id]);
+            if ( isset($data["item-".$existsItem->id]) ) {
+                unset($data["item-".$existsItem->id]);
             }
         }
         

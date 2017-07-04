@@ -6,6 +6,8 @@ use Model\Github\Organization;
 use function GuzzleHttp\json_decode;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Pool;
+use Model\Github\User;
+use Component\ProxyWebSiteWwwSslProxiesOrg;
 class PullUsers extends CommandActionAbstract {
     /** 拉取信息时的偏移值 */
     private $position = 0;
@@ -19,12 +21,10 @@ class PullUsers extends CommandActionAbstract {
     private $isSwitchRequesterRequired = false;
     /** 当前请求者信息 */
     private $currentRequester = array(
-        'index' => null,
         'Name' => null,
         'ClientID' => null,
         'ClientSecret' => null,
         'Proxy' => null,
-        'Concurrency' => null,
     );
     /** 待批量插入的用户数据 */
     private $batchUsers = array();
@@ -38,6 +38,7 @@ class PullUsers extends CommandActionAbstract {
      * @return void
      */
     protected function run( $position=null ) {
+        $this->proxyManager = new ProxyWebSiteWwwSslProxiesOrg();
         $this->taskStartTime = time();
         
         $dbTmplPath = OhaCore::system()->getPath('Data/Github/users.tmpl.db');
@@ -52,9 +53,8 @@ class PullUsers extends CommandActionAbstract {
         $cfg->set_connections(array('dev'=>"sqlite://{$dbPath}?urlencoded=true"));
         $cfg->set_default_connection('dev');
         
-        // $this->userCounter = Organization::count(array('conditions' => '1=1'));
-        // $lastOrg = Organization::find('first', array('order'=>'id DESC','limit'=>1));
-        $lastUser = null;
+        $this->userCounter = User::count(array('conditions' => '1=1'));
+        $lastUser = User::find('first', array('order'=>'id DESC','limit'=>1));
         if ( null !== $lastUser ) {
             $this->position = $lastUser->id;
         }
@@ -62,20 +62,22 @@ class PullUsers extends CommandActionAbstract {
             $this->position = $position;
         }
         
+        $this->isSwitchRequesterRequired = true;
         $this->switchRequester();
-        $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-        $response = $client->request('GET', '/users', $this->getRequestOption(array('since'=>$this->position)));
-        $this->onAPICallSuccessed($response, 0);
-        echo "\n";
         do {
             if ( false === $this->taskList ) {
                 $this->info("No task any more.");
                 break;
             }
             if ( null === $this->taskList ) {
-                $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-                $response = $client->request('GET', '/users', $this->getRequestOption(array('since'=>$this->position)));
-                $this->onAPICallSuccessed($response, 0);
+                do {
+                    try {
+                        $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
+                        $response = $client->request('GET', '/users', $this->getRequestOption(array('since'=>$this->position)));
+                        $this->onAPICallSuccessed($response, 0);
+                        break;
+                    }catch ( \Exception $e ) {}
+                } while( true );
                 continue;
             }
             
@@ -91,10 +93,7 @@ class PullUsers extends CommandActionAbstract {
             $poolOption = array();
             $poolOption['fulfilled'] = array($this,'onAPICallSuccessed');
             $poolOption['rejected'] = array($this,'onAPICallFailed');
-            $poolOption['concurrency'] = count($requestJobs);
-            if ( null !== $this->currentRequester['Concurrency'] ) {
-                $poolOption['concurrency'] = $this->currentRequester['Concurrency'];
-            }
+            $poolOption['concurrency'] = (null===$this->currentRequester['Proxy']) ? count($requestJobs) : 10;
             $poolOption['options'] = $this->getRequestOption(array('since'=>$this->position));
             $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
             $pool = new Pool($client, $requestJobs,$poolOption);
@@ -104,31 +103,20 @@ class PullUsers extends CommandActionAbstract {
             $promise->wait();
             echo "\n";
             
-            Organization::insertBatch($this->batchOrgs);
-            $this->batchOrgs = array();
+            User::insertBatch($this->batchUsers);
+            $this->batchUsers = array();
             if ( $this->isSwitchRequesterRequired ) {
                 $this->position = $responseJson[0]['id'];
                 $this->switchRequester();
             }
         } while ( true );
         
-        $this->info("Done Pulling : %d Orgs", Organization::count());
-    }
-    
-    /** 获取显示信息前缀*/
-    private function getDisplayPrefix() {
-        $speed = sprintf('%.2f', $this->currentTaskUserCounter / (time()-$this->taskStartTime));
-        if ( 4 >= strlen($speed) ) {
-            $speed = "0{$speed}";
-        }
-        $speed = sprintf('%sorg/s', $speed);
-        $printPrefix = sprintf("@%s |C:%s P:%d| %s", $speed, $this->userCounter, $this->position, $this->requestRateLimitMessage);
-        return $printPrefix;
+        $this->info("Done Pulling : %d Users", Organization::count());
     }
     
     /** 获取组织详情信息成功时调用。 */
     public function onAPICallSuccessed( $response, $index ) {
-        if ( $this->isSwitchRequesterRequired || !$this->checkLimitRateRemains($response) ) {
+    if ( $this->isSwitchRequesterRequired || !$this->checkLimitRateRemains($response) ) {
             $this->isSwitchRequesterRequired = true;
             return;
         }
@@ -136,7 +124,7 @@ class PullUsers extends CommandActionAbstract {
         $responseJson = json_decode($response->getBody(), true);
         if ( isset($responseJson['id']) ) {
             echo ".";
-            $this->batchOrgs[] = $responseJson;
+            $this->batchUsers[] = $responseJson;
             $this->userCounter ++;
             $this->currentTaskUserCounter ++;
         } else {
@@ -155,92 +143,8 @@ class PullUsers extends CommandActionAbstract {
      * @param \GuzzleHttp\Exception\RequestException $reason
      * */
     public function onAPICallFailed($reason, $index) {
-        $mark = '.';
-        if ( 0 === $index ) {
-            $mark = '*';
-            $this->taskList = null;
-        }
-        
-        switch ( $reason->getCode() ) {
-        case 504 : echo "[{$mark}:504]"; break;
-        default  : 
-            $this->info($reason->getMessage()); 
-            break;
-        }
-    }
-    
-    /** 获取请求配置信息 */
-    private function getRequestOption($query=array()) {
-        $option = array();
-        $option['verify'] = false;
-        $option['query'] = $query;
-        $option['query']['client_id'] = $this->currentRequester['ClientID'];
-        $option['query']['client_secret'] = $this->currentRequester['ClientSecret'];
-        if ( null !== $this->currentRequester['Proxy'] ) {
-            $option['proxy'] = $this->currentRequester['Proxy'];
-        }
-        return $option;
-    }
-    
-    /** 更换请求者 */
-    private function switchRequester() {
-        $this->info("Switch requester : start.");
-        $mainConfig = OhaCore::system()->getConfig();
-        $githubApps = $mainConfig['Github']['AppInfos'];
-        
-        $activeIndex = $this->currentRequester['index'];
-        if ( null === $activeIndex ) {
-            $activeIndex = 0;
-        } else if ( $activeIndex+1 >= count($githubApps) ) {
-            $activeIndex = 0;
-        } else {
-            $activeIndex ++;
-        }
-        
-        $minWaitTime = null;
-        $minWaitTimeIndex = null;
-        for ( ; $activeIndex<count($githubApps); $activeIndex++ ) {
-            $this->currentRequester = array(
-                'index' => $activeIndex,
-                'Name' => $githubApps[$activeIndex]['Name'],
-                'ClientID' => $githubApps[$activeIndex]['ClientID'],
-                'ClientSecret' => $githubApps[$activeIndex]['ClientSecret'],
-                'Proxy' => $githubApps[$activeIndex]['Proxy'],
-                'Concurrency' => $githubApps[$activeIndex]['Concurrency'],
-            );
-            
-            try {
-                $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-                $response = $client->request('GET', 'users/octocat', $this->getRequestOption());
-            } catch ( \GuzzleHttp\Exception\ClientException $e ) {
-                $this->info("Switch requester : %s blocked.", $githubApps[$activeIndex]['Name']);
-                continue;
-            }
-
-            $waitTime = 0;
-            if ( $this->checkLimitRateRemains($response, $waitTime) ) {
-                $this->info("Switch requester : %s available.", $githubApps[$activeIndex]['Name']);
-                $this->isSwitchRequesterRequired = false;
-                break;
-            }
-            
-            $this->info("Switch requester : %s remains %d secs.", $githubApps[$activeIndex]['Name'], $waitTime);
-            if ( null===$minWaitTime || $waitTime<$minWaitTime ){
-                $minWaitTime = $waitTime;
-                $minWaitTimeIndex = $activeIndex;
-            }
-        }
-        
-        if ( $this->isSwitchRequesterRequired ) {
-            $minWaitTime += 5;
-            while ( $minWaitTime > 0 ) {
-                $this->info("You need to wait for {$minWaitTime} secs to back to top limit.");
-                $minWaitTime --;
-                sleep(1);
-            }
-            
-            $this->switchRequester();
-        }
+        echo "X";
+        $this->isSwitchRequesterRequired = true;
     }
     
     /**
@@ -262,5 +166,73 @@ class PullUsers extends CommandActionAbstract {
             return 0;
         }
         return $rateRemain[0];
+    }
+    
+    /** @var ProxyWebSiteWwwSslProxiesOrg */
+    private $proxyManager = null;
+    
+    /** 更换请求者 */
+    private function switchRequester() {
+        $this->info("Switch requester : start.");
+        $mainConfig = OhaCore::system()->getConfig();
+        $githubApps = $mainConfig['Github']['AppInfos'];
+    
+        $isNoPorxyTried = false;
+        while ( $this->isSwitchRequesterRequired ) {
+            foreach ( $githubApps as $githubApp ) {
+                $this->currentRequester = array(
+                    'Name' => $githubApp['Name'],
+                    'ClientID' => $githubApp['ClientID'],
+                    'ClientSecret' => $githubApp['ClientSecret'],
+                    'Proxy' => $isNoPorxyTried ? $this->proxyManager->getAnAvailableProxyString() : null,
+                );
+    
+                try {
+                    $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
+                    $response = $client->request('GET', 'orgs/github', $this->getRequestOption());
+                } catch ( \Exception $e ) {
+                    continue;
+                }
+    
+                $waitTime = 0;
+                if ( $this->checkLimitRateRemains($response, $waitTime) ) {
+                    $this->info("Switch requester : %s available.", $githubApp['Name']);
+                    $this->isSwitchRequesterRequired = false;
+                    break;
+                }
+                $isNoPorxyTried = true;
+            }
+        }
+        $this->taskStartTime = time() - 1;
+        $this->currentTaskOrgCounter = 0;
+    }
+    
+    /** 获取请求配置信息 */
+    private function getRequestOption($query=array()) {
+        $option = array();
+        $option['connect_timeout'] = 3;
+        $option['verify'] = false;
+        $option['query'] = $query;
+        $option['query']['client_id'] = $this->currentRequester['ClientID'];
+        $option['query']['client_secret'] = $this->currentRequester['ClientSecret'];
+        if ( null !== $this->currentRequester['Proxy'] ) {
+            $option['proxy'] = $this->currentRequester['Proxy'];
+        }
+        return $option;
+    }
+    
+    /** 获取显示信息前缀*/
+    private function getDisplayPrefix() {
+        $timeSpend = time()-$this->taskStartTime;
+        if ( 0 === $timeSpend ) {
+            $timeSpend = 1;
+        }
+        $speed = sprintf('%.2f', $this->currentTaskUserCounter / (time()-$this->taskStartTime));
+        if ( 4 >= strlen($speed) ) {
+            $speed = "0{$speed}";
+        }
+        $speed = sprintf('%sorg/s', $speed);
+        $printPrefix = sprintf("@%s |C:%s P:%d| %s", $speed, $this->userCounter, $this->position, $this->requestRateLimitMessage);
+        return $printPrefix;
     }
 }
