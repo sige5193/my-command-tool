@@ -4,8 +4,10 @@ return array(
     'TimeZone' => 'Asia/Shanghai',
 ),
 'CharSet' => array(
-    'Input' => 'GB2312',
-    'Output' => 'GB2312//IGNORE',
+    'Input' => 'UTF-8',
+    'Output' => 'UTF-8',
+    #'Input' => 'GB2312',
+    #'Output' => 'GB2312//IGNORE',
 ),
 'Github' => array(
     'AppInfos' => array(
@@ -70,4 +72,5 @@ return array(
         'TableColumnComment' => json_decode(file_get_contents(__DIR__.'/db_column_comment.json'), true),
     ),
 ),
+'Shgt' => require __DIR__.'/Shgt/Shgt.php',
 );
