@@ -40,7 +40,7 @@ class CommandActionAbstract {
         foreach ( $methodInfo->getParameters() as $index => $parameter ) {
             /** @var $parameter \ReflectionParameter */
             $name = $parameter->getName();
-            if ( isset($actionParams[$name]) ) {
+            if ( array_key_exists($name, $actionParams) ) {
                 $methodParams[$name] = $actionParams[$name];
             } else if ( $parameter->isDefaultValueAvailable() ) {
                 $methodParams[$name] = $parameter->getDefaultValue();
