@@ -233,7 +233,12 @@ class PullUsers extends CommandActionAbstract {
             $speed = "0{$speed}";
         }
         $speed = sprintf('%sorg/s', $speed);
-        $printPrefix = sprintf("@%s |C:%s P:%d| %s", $speed, $this->userCounter, $this->position, $this->requestRateLimitMessage);
+        $printPrefix = sprintf("%s: @%s |C:%s P:%d| %s", 
+            date('H:i:s'),
+            $speed, 
+            $this->userCounter, 
+            $this->position, 
+            $this->requestRateLimitMessage);
         return $printPrefix;
     }
 }
