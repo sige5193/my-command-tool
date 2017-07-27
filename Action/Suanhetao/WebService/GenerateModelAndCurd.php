@@ -82,6 +82,12 @@ class GenerateModelAndCurd extends CommandActionAbstract {
         $actionContent = "<?php \n".$this->renderView('Data/Suanhetao/WebService/TemplateActionDelete.php', $actionData);
         file_put_contents($actionPath, $actionContent);
         Util::printf("Action Delete Path : %s\n", $actionPath);
+        
+        # Action Review
+        $actionPath =str_replace('/', DIRECTORY_SEPARATOR, "{$actionBasePath}Review.php");
+        $actionContent = "<?php \n".$this->renderView('Data/Suanhetao/WebService/TemplateActionReview.php', $actionData);
+        file_put_contents($actionPath, $actionContent);
+        Util::printf("Action Review Path : %s\n", $actionPath);
     }
     
     /**
