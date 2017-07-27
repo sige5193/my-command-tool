@@ -180,13 +180,15 @@ class PullUsers extends CommandActionAbstract {
         $isNoPorxyTried = false;
         while ( $this->isSwitchRequesterRequired ) {
             foreach ( $githubApps as $githubApp ) {
+                $proxyInfo = array();
                 $this->currentRequester = array(
                     'Name' => $githubApp['Name'],
                     'ClientID' => $githubApp['ClientID'],
                     'ClientSecret' => $githubApp['ClientSecret'],
-                    'Proxy' => $isNoPorxyTried ? $this->proxyManager->getAnAvailableProxyString() : null,
+                    'Proxy' => $isNoPorxyTried ? $this->proxyManager->getAnAvailableProxyString($proxyInfo) : null,
+                    'Country' => $isNoPorxyTried ? $proxyInfo['country'] : 'LOCAL',
                 );
-    
+                
                 try {
                     $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
                     $response = $client->request('GET', 'users/jjs110', $this->getRequestOption());
@@ -233,9 +235,11 @@ class PullUsers extends CommandActionAbstract {
             $speed = "0{$speed}";
         }
         $speed = sprintf('%sorg/s', $speed);
-        $printPrefix = sprintf("%s: @%s |C:%s P:%d| %s", 
+        $printPrefix = sprintf("%s: %s@%s(%s) |C:%s P:%d| %s", 
             date('H:i:s'),
             $speed, 
+            $this->currentRequester['Proxy'],
+            $this->currentRequester['Country'],
             $this->userCounter, 
             $this->position, 
             $this->requestRateLimitMessage);
