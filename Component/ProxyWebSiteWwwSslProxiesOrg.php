@@ -11,10 +11,11 @@ class ProxyWebSiteWwwSslProxiesOrg {
     
     /**
      * 获取有效代理字符串
+     * @note : 仅仅获取美国或者加拿大的代理。
      * @return string
      */
-    public function getAnAvailableProxyString() {
-        if ( 80 > count($this->proxies) ) {
+    public function getAnAvailableProxyString( &$proxyInfo=null ) {
+        if ( 10 > count($this->proxies) ) {
             $this->pullProxyList();
         }
         
@@ -23,19 +24,31 @@ class ProxyWebSiteWwwSslProxiesOrg {
         foreach ( $this->proxies as $index => $item ) {
             unset($this->proxies[$index]);
             $proxyString = "https://{$item['ip']}:{$item['port']}";
-            Util::printf("Checking proxy : {$proxyString}\n");
+            Util::printf("Checking proxy : {$proxyString} ({$item['country']})\n");
+            if ( !in_array($item['country'], array('Canada','United States')) ) {
+                continue;
+            }
+            
             $client = new \GuzzleHttp\Client(['base_uri' => self::PROXY_CHECK_URL]);
             try {
-                $response = $client->request('GET', "/json", ['proxy'=>$proxyString,'connect_timeout'=>5]);
+                $response = $client->request('GET', "/json", [
+                    'proxy'=>$proxyString,
+                    'connect_timeout'=>3.14,
+                    'timeout' => 3.14,
+                ]);
             } catch ( \Exception $e ) {
                 continue;
             }
             $json = json_decode($response->getBody(), true);
             if ( null === $json ) {
                 $proxyString = null;
-            } else {
-                break;
+                continue;
             }
+            
+            if ( null !== $proxyInfo ) {
+                $proxyInfo = $item;
+            }
+            break;
         }
         
         if ( null !== $proxyString ) {

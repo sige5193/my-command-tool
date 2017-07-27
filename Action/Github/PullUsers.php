@@ -180,16 +180,18 @@ class PullUsers extends CommandActionAbstract {
         $isNoPorxyTried = false;
         while ( $this->isSwitchRequesterRequired ) {
             foreach ( $githubApps as $githubApp ) {
+                $proxyInfo = array();
                 $this->currentRequester = array(
                     'Name' => $githubApp['Name'],
                     'ClientID' => $githubApp['ClientID'],
                     'ClientSecret' => $githubApp['ClientSecret'],
-                    'Proxy' => $isNoPorxyTried ? $this->proxyManager->getAnAvailableProxyString() : null,
+                    'Proxy' => $isNoPorxyTried ? $this->proxyManager->getAnAvailableProxyString($proxyInfo) : null,
+                    'Country' => $isNoPorxyTried ? $proxyInfo['country'] : 'LOCAL',
                 );
-    
+                
                 try {
                     $client = new \GuzzleHttp\Client(['base_uri' => 'https://api.github.com']);
-                    $response = $client->request('GET', 'orgs/github', $this->getRequestOption());
+                    $response = $client->request('GET', 'users/jjs110', $this->getRequestOption());
                 } catch ( \Exception $e ) {
                     continue;
                 }
@@ -210,7 +212,8 @@ class PullUsers extends CommandActionAbstract {
     /** 获取请求配置信息 */
     private function getRequestOption($query=array()) {
         $option = array();
-        $option['connect_timeout'] = 3;
+        $option['timeout'] = 3.14;
+        $option['connect_timeout'] = 3.14;
         $option['verify'] = false;
         $option['query'] = $query;
         $option['query']['client_id'] = $this->currentRequester['ClientID'];
@@ -232,7 +235,14 @@ class PullUsers extends CommandActionAbstract {
             $speed = "0{$speed}";
         }
         $speed = sprintf('%sorg/s', $speed);
-        $printPrefix = sprintf("@%s |C:%s P:%d| %s", $speed, $this->userCounter, $this->position, $this->requestRateLimitMessage);
+        $printPrefix = sprintf("%s: %s@%s(%s) |C:%s P:%d| %s", 
+            date('H:i:s'),
+            $speed, 
+            $this->currentRequester['Proxy'],
+            $this->currentRequester['Country'],
+            $this->userCounter, 
+            $this->position, 
+            $this->requestRateLimitMessage);
         return $printPrefix;
     }
 }
