@@ -7,12 +7,30 @@ class GenerateModelAndCurd extends CommandActionAbstract {
      * 根据指定的数据库表生成模型与数据库操作动作。
      * @param string $projectLocation 项目路径
      * @param string $dsn 数据库链接字符串
-     * @param string $table 需要处理的表名
+     * @param string $table 需要处理的表名, 如果为空则标识处理所有表
      * @param string $user 数据库链接用户名
      * @param string $password 数据库链接密码
      * @return void
      */
-    public function run ( $projectLocation, $dsn, $table, $user=null, $password=null ) {
+    public function run ( $projectLocation, $dsn, $table=null, $user=null, $password=null ) {
+        if ( null !== $table ) {
+            $this->doGenerateByTable($projectLocation, $dsn, $table, $user, $password);
+        } else {
+            $tables = $this->getTables($dsn, $table, $user, $password);
+            foreach ( $tables as $table ) {
+                $this->doGenerateByTable($projectLocation, $dsn, $table, $user, $password);
+            }
+        }
+    }
+    
+    /**
+     * @param unknown $projectLocation
+     * @param unknown $dsn
+     * @param unknown $table
+     * @param unknown $user
+     * @param unknown $password
+     */
+    private function doGenerateByTable($projectLocation, $dsn, $table, $user=null, $password=null) {
         $tableInfo = $this->getTableConfig($dsn, $table, $user, $password);
         
         # generate model
@@ -28,27 +46,27 @@ class GenerateModelAndCurd extends CommandActionAbstract {
             if ( in_array($colName, $parentColumns) ) {
                 continue;
             }
-            
+        
             $attrDescription = array();
             $attrDescription[] = strtoupper($colDef['type']);
             if ( !empty($colDef['length']) ) {
                 $attrDescription[] = "({$colDef['length']})";
             }
-            
+        
             if ( $colDef['isPK'] ) { $attrDescription[] = 'PRIMARY'; }
             if ( $colDef['isUnique'] ) { $attrDescription[] = 'UNIQUE'; }
             if ( $colDef['isNotNull'] ) { $attrDescription[] = 'NOTNULL'; }
-            if ( !empty($colDef['default']) ) { 
-                $attrDescription[] = "[{$colDef['default']}]"; 
+            if ( !empty($colDef['default']) ) {
+                $attrDescription[] = "[{$colDef['default']}]";
             }
             $modelData['attributes'][$colName] = array(
-                'name'=>$colName, 
-                'comment'=>$colDef['comment'], 
+                'name'=>$colName,
+                'comment'=>$colDef['comment'],
                 'description'=>implode(' ', $attrDescription)
             );
         }
         $modelPath = rtrim($projectLocation,DIRECTORY_SEPARATOR)
-            .str_replace('/', DIRECTORY_SEPARATOR, "/Module/Api/Model/{$modelData['modelName']}.php");
+        .str_replace('/', DIRECTORY_SEPARATOR, "/Module/Api/Model/{$modelData['modelName']}.php");
         $modelContent = "<?php \n".$this->renderView('Data/Suanhetao/WebService/TemplateModel.php', $modelData);
         file_put_contents($modelPath, $modelContent);
         Util::printf("Model Path : %s\n", $modelPath);
@@ -122,6 +140,29 @@ class GenerateModelAndCurd extends CommandActionAbstract {
             }
             return $tableInfo;
         default: throw new \Exception("Unkonwn database type `{$dbType}`.");
+        }
+    }
+    
+    /**
+     * @param unknown $dsn
+     * @param unknown $table
+     * @param unknown $user
+     * @param unknown $password
+     * @throws \Exception
+     */
+    private function getTables($dsn, $table, $user, $password) {
+        $dbType = substr($dsn, 0, strpos($dsn, ':'));
+        
+        switch ( $dbType ) {
+            case 'mysql' :
+                $connection = new \PDO($dsn, $user, $password);
+                $connection->exec("SET NAMES UTF8");
+                $tables = $connection->query("SHOW TABLES")->fetchAll(\PDO::FETCH_ASSOC);
+                foreach ( $tables as $index => $table ) {
+                    $tables[$index] = array_pop($table);
+                }
+                return $tables;
+            default: throw new \Exception("Unkonwn database type `{$dbType}`.");
         }
     }
 }
